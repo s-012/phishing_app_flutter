@@ -1,0 +1,87 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// User 모델: 애플리케이션의 핵심 사용자 정보
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String?  // OAuth의 경우 null
+  username  String?  @unique
+  
+  // 사용자 프로필
+  displayName String?
+  phoneNumber String?
+  
+  // 계정 상태
+  isGuest   Boolean  @default(false)
+  isActive  Boolean  @default(true)
+  
+  // 소셜 로그인
+  oauthProvider String?  // 'google', 'apple', null (일반 회원가입)
+  oauthId       String?
+  oauthEmail    String?
+  
+  // 관계
+  scans     Scan[]
+  
+  // 시간 정보
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([email])
+  @@index([oauthId])
+}
+
+// Scan 모델: 사용자의 스미싱 탐지 결과 기록
+model Scan {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // 스캔 정보
+  url       String
+  text      String?  // SMS 메시지 또는 원본 텍스트
+  
+  // 탐지 결과
+  isPhishing    Boolean
+  riskLevel     String   // 'low', 'medium', 'high', 'critical'
+  confidenceScore Float  // 0 ~ 100
+  
+  // 탐지 방법
+  detectionMethod String // 'google_safe_browsing', 'model_inference', 'combined'
+  
+  // 상세 정보
+  details       String?  // JSON 형식의 상세 분석 결과
+  
+  // 시간 정보
+  createdAt DateTime @default(now())
+  
+  @@index([userId])
+  @@index([isPhishing])
+  @@index([createdAt])
+}
+
+// UserStat 모델: 사용자별 통계
+model UserStat {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  
+  // 통계 정보
+  totalScans        Int @default(0)
+  phishingDetected  Int @default(0)
+  
+  // 시간 정보
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([userId])
+}
