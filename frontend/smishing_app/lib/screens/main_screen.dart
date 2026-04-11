@@ -257,10 +257,7 @@ class _MainScreenState extends State<MainScreen> {
             title: const Text(
               '검사 횟수 초과',
               textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
             content: const Text(
               '비회원은 3회까지만 검사할 수 있어요.\n로그인 후 무제한으로 이용하세요!',
@@ -291,10 +288,7 @@ class _MainScreenState extends State<MainScreen> {
                   ),
                   child: const Text(
                     '로그인하러 가기',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                 ),
               ),
@@ -311,10 +305,7 @@ class _MainScreenState extends State<MainScreen> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  child: const Text(
-                    '닫기',
-                    style: TextStyle(fontSize: 16),
-                  ),
+                  child: const Text('닫기', style: TextStyle(fontSize: 16)),
                 ),
               ),
             ],
@@ -405,20 +396,17 @@ class _MainScreenState extends State<MainScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        toolbarHeight: 100,
+        toolbarHeight: 80, //앱바 높이 수정
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.white,
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: true,
-        title: SizedBox(
-          height: 76,
-          width: MediaQuery.of(context).size.width * 0.55,
-          child: Image.asset(
-            'assets/images/logo.png',
-            fit: BoxFit.contain,
-            filterQuality: FilterQuality.high,
-          ),
+        title: Image.asset(
+          'assets/images/logo.png',
+          height: 200, //로고 크기 수정
+          fit: BoxFit.contain,
+          filterQuality: FilterQuality.high,
         ),
         iconTheme: const IconThemeData(color: Color(0xFF1976D2)),
       ),
@@ -495,9 +483,7 @@ class _MainScreenState extends State<MainScreen> {
                       ),
                     ),
                   ),
-
                   const SizedBox(height: 42),
-
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
@@ -527,9 +513,7 @@ class _MainScreenState extends State<MainScreen> {
                       ),
                     ],
                   ),
-
                   const SizedBox(height: 18),
-
                   TextField(
                     controller: _inputController,
                     maxLines: 5,
@@ -558,9 +542,7 @@ class _MainScreenState extends State<MainScreen> {
                       contentPadding: const EdgeInsets.all(16),
                     ),
                   ),
-
                   const SizedBox(height: 10),
-
                   if (!appState.isLoggedIn)
                     Row(
                       mainAxisAlignment: MainAxisAlignment.end,
@@ -575,9 +557,7 @@ class _MainScreenState extends State<MainScreen> {
                         ),
                       ],
                     ),
-
                   const SizedBox(height: 30),
-
                   SizedBox(
                     width: double.infinity,
                     height: 60,
@@ -600,9 +580,7 @@ class _MainScreenState extends State<MainScreen> {
                       ),
                     ),
                   ),
-
                   const SizedBox(height: 46),
-
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -626,9 +604,7 @@ class _MainScreenState extends State<MainScreen> {
                         ),
                     ],
                   ),
-
                   const SizedBox(height: 18),
-
                   if (_recentHistory.isEmpty)
                     Container(
                       width: double.infinity,
@@ -691,7 +667,6 @@ class _MainScreenState extends State<MainScreen> {
                 ],
               ),
             ),
-
             if (_isLoading)
               Container(
                 color: Colors.black.withOpacity(0.5),
