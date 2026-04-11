@@ -411,14 +411,11 @@ class _MainScreenState extends State<MainScreen> {
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: true,
-        title: SizedBox(
-          height: 76,
-          width: MediaQuery.of(context).size.width * 0.55,
-          child: Image.asset(
-            'assets/images/logo.png',
-            fit: BoxFit.contain,
-            filterQuality: FilterQuality.high,
-          ),
+        title: Image.asset(
+          'assets/images/logo.png',
+          height: 90,
+          fit: BoxFit.contain,
+          filterQuality: FilterQuality.high,
         ),
         iconTheme: const IconThemeData(color: Color(0xFF1976D2)),
       ),
@@ -495,9 +492,7 @@ class _MainScreenState extends State<MainScreen> {
                       ),
                     ),
                   ),
-
                   const SizedBox(height: 42),
-
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
@@ -527,15 +522,14 @@ class _MainScreenState extends State<MainScreen> {
                       ),
                     ],
                   ),
-
                   const SizedBox(height: 18),
-
                   TextField(
                     controller: _inputController,
                     maxLines: 5,
                     style: const TextStyle(fontSize: 18),
                     decoration: InputDecoration(
-                      hintText: '예) 택배 미수령 안내입니다. 확인하세요.\nhttps://example.com',
+                      hintText:
+                          '예) 택배 미수령 안내입니다. 확인하세요.\nhttps://example.com',
                       hintStyle: const TextStyle(
                         fontSize: 16,
                         color: Color(0xFFBDBDBD),
@@ -558,9 +552,7 @@ class _MainScreenState extends State<MainScreen> {
                       contentPadding: const EdgeInsets.all(16),
                     ),
                   ),
-
                   const SizedBox(height: 10),
-
                   if (!appState.isLoggedIn)
                     Row(
                       mainAxisAlignment: MainAxisAlignment.end,
@@ -575,9 +567,7 @@ class _MainScreenState extends State<MainScreen> {
                         ),
                       ],
                     ),
-
                   const SizedBox(height: 30),
-
                   SizedBox(
                     width: double.infinity,
                     height: 60,
@@ -600,9 +590,7 @@ class _MainScreenState extends State<MainScreen> {
                       ),
                     ),
                   ),
-
                   const SizedBox(height: 46),
-
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -626,9 +614,7 @@ class _MainScreenState extends State<MainScreen> {
                         ),
                     ],
                   ),
-
                   const SizedBox(height: 18),
-
                   if (_recentHistory.isEmpty)
                     Container(
                       width: double.infinity,
@@ -691,7 +677,6 @@ class _MainScreenState extends State<MainScreen> {
                 ],
               ),
             ),
-
             if (_isLoading)
               Container(
                 color: Colors.black.withOpacity(0.5),
