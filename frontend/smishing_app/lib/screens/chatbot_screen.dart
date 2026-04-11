@@ -57,8 +57,8 @@ class _ChatBotScreenState extends State<ChatBotScreen> {
   void _handleBack() {
     if (widget.onBackHome != null) {
       widget.onBackHome!();
-    } else {
-      Navigator.maybePop(context);
+    } else if (Navigator.canPop(context)) {  // ← 뒤로가기 버그 수정
+      Navigator.pop(context);
     }
   }
 
@@ -230,6 +230,9 @@ class _ChatBotScreenState extends State<ChatBotScreen> {
             style: TextStyle(fontWeight: FontWeight.bold),
           ),
         ),
+        // ← 핵심 수정: resizeToAvoidBottomInset 추가
+        // 키보드가 올라올 때 채팅창이 짤리지 않게 함
+        resizeToAvoidBottomInset: true,
         body: Column(
           children: [
             Padding(
@@ -310,65 +313,69 @@ class _ChatBotScreenState extends State<ChatBotScreen> {
               ),
             ),
             const SizedBox(height: 10),
-            Container(
-              padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                border: Border(top: BorderSide(color: Color(0xFFE5E7EB))),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Container(
+            // ← 핵심 수정: SafeArea로 감싸서 하단이 짤리지 않게 함
+            SafeArea(
+              top: false,
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  border: Border(top: BorderSide(color: Color(0xFFE5E7EB))),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(color: const Color(0xFFD6E0EA)),
+                        ),
+                        child: TextField(
+                          controller: _messageController,
+                          style: const TextStyle(
+                            fontSize: 15.5,
+                            color: Color(0xFF0F172A),
+                          ),
+                          minLines: 1,
+                          maxLines: 4,
+                          decoration: const InputDecoration(
+                            hintText: '의심 문자 내용이나 궁금한 점을 입력하세요',
+                            hintStyle: TextStyle(
+                              color: Color(0xFF64748B),
+                              fontSize: 14.5,
+                            ),
+                            border: InputBorder.none,
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 14,
+                            ),
+                          ),
+                          onSubmitted: (_) => _sendMessage(),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Container(
+                      width: 54,
+                      height: 54,
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF1F5F9),
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF1565C0), Color(0xFF1E88E5)],
+                        ),
                         borderRadius: BorderRadius.circular(18),
-                        border: Border.all(color: const Color(0xFFD6E0EA)),
                       ),
-                      child: TextField(
-                        controller: _messageController,
-                        style: const TextStyle(
-                          fontSize: 15.5,
-                          color: Color(0xFF0F172A),
+                      child: IconButton(
+                        icon: const Icon(
+                          Icons.send_rounded,
+                          color: Colors.white,
+                          size: 24,
                         ),
-                        minLines: 1,
-                        maxLines: 4,
-                        decoration: const InputDecoration(
-                          hintText: '의심 문자 내용이나 궁금한 점을 입력하세요',
-                          hintStyle: TextStyle(
-                            color: Color(0xFF64748B),
-                            fontSize: 14.5,
-                          ),
-                          border: InputBorder.none,
-                          contentPadding: EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 14,
-                          ),
-                        ),
-                        onSubmitted: (_) => _sendMessage(),
+                        onPressed: _sendMessage,
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  Container(
-                    width: 54,
-                    height: 54,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF1565C0), Color(0xFF1E88E5)],
-                      ),
-                      borderRadius: BorderRadius.circular(18),
-                    ),
-                    child: IconButton(
-                      icon: const Icon(
-                        Icons.send_rounded,
-                        color: Colors.white,
-                        size: 24,
-                      ),
-                      onPressed: _sendMessage,
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ],

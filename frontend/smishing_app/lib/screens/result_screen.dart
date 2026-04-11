@@ -164,6 +164,7 @@ class ResultScreen extends StatelessWidget {
                         builder: (context) => ChatBotScreen(
                           initialMessage:
                               '검사한 내용: $inputText\n판단 결과: $label ($score%)\n이유: $reason',
+                          onBackHome: () => Navigator.pop(context),
                         ),
                       ),
                     );
