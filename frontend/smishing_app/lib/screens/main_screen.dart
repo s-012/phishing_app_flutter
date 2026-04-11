@@ -242,7 +242,6 @@ class _MainScreenState extends State<MainScreen> {
 
     if (!appState.isLoggedIn) {
       if (!appState.canUseGuestScan) {
-<<<<<<< HEAD
         showDialog(
           context: context,
           barrierDismissible: false,
@@ -310,17 +309,7 @@ class _MainScreenState extends State<MainScreen> {
                 ),
               ),
             ],
-=======
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('비회원은 3회까지만 검사할 수 있어요. 로그인 후 계속 이용해주세요.'),
->>>>>>> parent of e536142 ("챗봇 하단바 짤림 수정, 뒤로가기 버그 수정, 비회원 팝업창 추가")
           ),
-        );
-
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const LoginScreen()),
         );
         return;
       }
