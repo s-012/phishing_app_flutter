@@ -35,7 +35,7 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
 
       final response = await http.post(
-        Uri.parse('env에 따로 작성'), 
+        Uri.parse('------- env --------'), 
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'email': email, 'password': password}),
       ).timeout(const Duration(seconds: 5)); //  [추가] 5초 타임아웃
@@ -69,7 +69,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   //  [수정] 소셜 로그인 실행 함수 (카카오, 네이버 주소 호출)
   void _handleSocialLogin(String platform) async {
-    final url = Uri.parse('env에 따로 작성');
+    final url = Uri.parse('------- env --------');
     
     try {
 
