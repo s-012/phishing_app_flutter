@@ -20,7 +20,7 @@ authRouter.post("/oauth", authController.oauth);
 // 카카오 간편로그인 추가
 authRouter.get("/kakao", (req, res) => {
   
-  const KAKAO_CLIENT_ID = "YOUR_KAKAO_CLIENT_ID"; // 아이디는 말씀해주세요
+  const KAKAO_CLIENT_ID = "YOUR_KAKAO_CLIENT_ID"; 
   const KAKAO_REDIRECT_URI = "https://smishing-team012.duckdns.org/api/auth/kakao/callback"; 
   const kakaoUrl = `https://kauth.kakao.com/oauth/authorize?client_id=${KAKAO_CLIENT_ID}&redirect_uri=${KAKAO_REDIRECT_URI}&response_type=code`;
   
