@@ -4,9 +4,9 @@ import 'home_screen.dart';
 import 'signup_screen.dart';
 import 'onboarding_screen.dart';
 import '../widgets/social_login_button.dart';
-import 'package:http/http.dart' as http; // 추가됨
-import 'dart:convert'; //  추가됨
-import 'package:url_launcher/url_launcher.dart'; //  추가됨
+import 'package:http/http.dart' as http; // 추가
+import 'dart:convert'; //  추가
+import 'package:url_launcher/url_launcher.dart'; 추가
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -24,7 +24,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final email = _idController.text.trim();
     final password = _pwController.text.trim();
 
-    // ➕ [추가] 입력값 유무 확인
+    // 
     if (email.isEmpty || password.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('아이디와 비밀번호를 입력해주세요.')),
@@ -33,9 +33,9 @@ class _LoginScreenState extends State<LoginScreen> {
     }
 
     try {
-      //  [수정]  백엔드 주소(4000번)로 로그인 요청 전송
+
       final response = await http.post(
-        Uri.parse('http://10.0.2.2:4000/api/auth/login'), 
+        Uri.parse('http://52.79.83.108:3000/api/auth/login'), 
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'email': email, 'password': password}),
       ).timeout(const Duration(seconds: 5)); //  [추가] 5초 타임아웃
@@ -69,11 +69,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
   //  [수정] 소셜 로그인 실행 함수 (카카오, 네이버 주소 호출)
   void _handleSocialLogin(String platform) async {
-    // 팀 프로젝트 백엔드 주소 (4000번 포트)
-    final url = Uri.parse('http://10.0.2.2:4000/api/auth/$platform');
+    final url = Uri.parse('http://52.79.83.108:3000/api/auth/$platform');
     
     try {
-      // url_launcher를 사용하여 외부 브라우저 실행
+
       if (await canLaunchUrl(url)) {
         await launchUrl(url, mode: LaunchMode.externalApplication);
       } else {
