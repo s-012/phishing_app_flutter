@@ -1,6 +1,8 @@
 import { Router } from "express";
 import { AuthController } from "./auth.controller";
 import { AuthService } from "./auth.service";
+import axios from "axios"; // 추가
+import jwt from "jsonwebtoken"; //추가
 
 export const authRouter = Router();
 
