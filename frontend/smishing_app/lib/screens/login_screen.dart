@@ -6,7 +6,9 @@ import 'onboarding_screen.dart';
 import '../widgets/social_login_button.dart';
 import 'package:http/http.dart' as http; // 추가
 import 'dart:convert'; //  추가
-import 'package:url_launcher/url_launcher.dart'; 추가
+import 'package:url_launcher/url_launcher.dart'; 
+import 'package:app_links/app_links.dart'; //  
+import 'package:flutter_secure_storage/flutter_secure_storage.dart'; 
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -20,6 +22,77 @@ class _LoginScreenState extends State<LoginScreen> {
   final _pwController = TextEditingController();
   bool _obscurePassword = true;
 
+  // 라이브러리 인스턴스 선언
+  late AppLinks _appLinks;
+  final _storage = const FlutterSecureStorage();
+
+  @override
+  void initState() {
+    super.initState();
+    _initDeepLinks(); // 화면이 켜질 때 소셜 로그인 딥링크 감시 시작
+  }
+
+  
+  void _initDeepLinks() {
+    _appLinks = AppLinks();
+
+    _appLinks.uriLinkStream.listen((Uri? uri) async {
+      if (uri == null) return;
+
+      debugPrint('🔗 감지된 딥링크 수신 호스트: ${uri.host}');
+
+      if (uri.host == 'login-success') {
+        final String? token = uri.queryParameters['token'];
+        final String? platform = uri.queryParameters['platform'];
+        final String? rawName = uri.queryParameters['name'];
+        final String? rawEmail = uri.queryParameters['email'];
+        
+        String? name;
+        String? email;
+        try {
+          if (rawName != null) name = Uri.decodeComponent(rawName);
+          if (rawEmail != null) email = Uri.decodeComponent(rawEmail);
+        } catch (e) {
+          debugPrint('데이터 디코딩 오류 (기본값 대체): $e');
+          name = rawName;
+          email = rawEmail;
+        }
+
+        if (token != null) {
+          debugPrint('[$platform 간편로그인 성공] 토큰 획득 완료');
+          debugPrint('파싱된 유저 정보 -> 이름: $name, 이메일: $email');
+          
+          await _storage.write(key: 'user_token', value: token);
+          await _storage.write(key: 'login_platform', value: platform ?? 'unknown');
+          
+          if (name != null) {
+            await _storage.write(key: 'user_name', value: name);
+          }
+          if (email != null) {
+            await _storage.write(key: 'user_email', value: email);
+          }
+          
+          appState.login();
+          if (mounted) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const HomeScreen()),
+            );
+          }
+        }
+      } else if (uri.host == 'login-fail') {
+        debugPrint('간편로그인 실패 신호 수신');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('소셜 로그인에 실패했습니다. 다시 시도해주세요.')),
+          );
+        }
+      }
+    }, onError: (err) {
+      debugPrint('딥링크 리스너 내부 에러: $err');
+    });
+  }
+  
   Future<void> _handleLogin() async {
     final email = _idController.text.trim();
     final password = _pwController.text.trim();
@@ -33,15 +106,21 @@ class _LoginScreenState extends State<LoginScreen> {
     }
 
     try {
-
       final response = await http.post(
-        Uri.parse('------- env --------'), 
+        Uri.parse('------- env http4 적으시면 됩니다--------'), 
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'email': email, 'password': password}),
       ).timeout(const Duration(seconds: 5)); //  [추가] 5초 타임아웃
 
-      //  [수정] 서버가 성공(200)을 응답했을 때만 로그인 처리
       if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body);
+        final String? token = responseData['token'];
+
+        if (token != null) {
+          await _storage.write(key: 'user_token', value: token);
+          await _storage.write(key: 'login_platform', value: 'email');
+        }
+
         appState.login();
         if (mounted) {
           Navigator.pushReplacement(
@@ -50,7 +129,6 @@ class _LoginScreenState extends State<LoginScreen> {
           );
         }
       } else {
-        //  [수정] 로그인 실패 시 알림 메시지 출력
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('아이디 또는 비밀번호가 올바르지 않습니다.')),
@@ -58,7 +136,6 @@ class _LoginScreenState extends State<LoginScreen> {
         }
       }
     } catch (e) {
-      //  [수정] 서버 연결 불가 시 예외 처리
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('서버 연결 실패! 팀플 백엔드(4000번)를 확인하세요.')),
@@ -69,7 +146,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   //  [수정] 소셜 로그인 실행 함수 (카카오, 네이버 주소 호출)
   void _handleSocialLogin(String platform) async {
-    final url = Uri.parse('------- env --------');
+    final url = Uri.parse('------- env http:4~ 적으시면 됩니다---');
     
     try {
 
@@ -176,7 +253,6 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
               const SizedBox(height: 24),
-              // [수정] const Row에서 const 제거 (내부 텍스트 가변성 대응)
               Row(
                 children: [
                   const Expanded(child: Divider()),
