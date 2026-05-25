@@ -349,6 +349,7 @@ final String detectedUrl = urlMatch == null
 
     String? analyzedAt;
     String? errorMessage;
+    String? llmResponseGuide;
 
     try {
       final response = await ApiService.scanText(
@@ -363,6 +364,7 @@ final String detectedUrl = urlMatch == null
       finalRiskScore = _toIntScore(response['final_risk_score']);
       safeBrowsing = _asMapList(response['safe_browsing']);
       analyzedAt = response['analyzed_at']?.toString();
+      llmResponseGuide = response['llm_response_guide']?.toString();
 
       final xgboostMap = _asMap(response['xgboost']);
       final xgboostList = _asMapList(response['xgboost']);
@@ -463,6 +465,7 @@ final String detectedUrl = urlMatch == null
           kcelectraVerdict: kcelectraVerdict,
           analyzedAt: analyzedAt,
           errorMessage: errorMessage,
+          llmResponseGuide: llmResponseGuide,
         ),
       ),
     );
