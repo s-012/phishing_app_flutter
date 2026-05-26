@@ -1,8 +1,14 @@
 import 'package:flutter/material.dart';
 import '../app_state.dart'; 
 import 'home_screen.dart';
+
+import '../app_state.dart';
+import '../services/api_client.dart';
+import '../services/auth_api_service.dart';
+
 import 'signup_screen.dart';
 import 'onboarding_screen.dart';
+import 'permission_screen.dart';
 import '../widgets/social_login_button.dart';
 import 'package:http/http.dart' as http; // 추가
 import 'dart:convert'; //  추가
@@ -18,9 +24,38 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _idController = TextEditingController();
+  final _emailController = TextEditingController();
   final _pwController = TextEditingController();
+
   bool _obscurePassword = true;
+  bool _isLoading = false;
+
+  Future<void> _handleLogin() async {
+    final email = _emailController.text.trim();
+    final password = _pwController.text;
+
+    if (email.isEmpty || password.isEmpty) {
+      _showSnack('이메일과 비밀번호를 입력해주세요');
+      return;
+    }
+
+    if (!_isValidEmail(email)) {
+      _showSnack('올바른 이메일 형식을 입력해주세요');
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      final result = await AuthApiService.login(
+        email: email,
+        password: password,
+      );
+
+      appState.setAuthenticatedSession(result.user);
+
+      if (!mounted) return;
+
 
   // 라이브러리 인스턴스 선언
   late AppLinks _appLinks;
@@ -158,6 +193,90 @@ class _LoginScreenState extends State<LoginScreen> {
     } catch (e) {
       debugPrint('소셜 로그인 오류: $e');
     }
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const PermissionScreen(),
+        ),
+      );
+    } on ApiException catch (e) {
+      _showSnack(e.message);
+    } catch (_) {
+      _showSnack('로그인 중 오류가 발생했습니다');
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  Future<void> _continueAsGuest() async {
+    await appState.logout();
+
+    if (!context.mounted) return;
+
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const PermissionScreen(),
+      ),
+    );
+  }
+
+  bool _isValidEmail(String value) {
+    return RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(value);
+  }
+
+  void _showSnack(String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _pwController.dispose();
+    super.dispose();
+  }
+
+  Widget _buildGuestButton() {
+    return Center(
+      child: GestureDetector(
+        onTap: _continueAsGuest,
+        behavior: HitTestBehavior.opaque,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 12,
+            vertical: 6,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                '비회원으로 이용하기',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey,
+                  letterSpacing: -0.2,
+                ),
+              ),
+              const SizedBox(height: 3),
+              Container(
+                width: 126,
+                height: 1,
+                color: Colors.grey.shade400,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
   }
 
   @override
@@ -169,7 +288,9 @@ class _LoginScreenState extends State<LoginScreen> {
           onPressed: () {
             Navigator.pushReplacement(
               context,
-              MaterialPageRoute(builder: (context) => const OnboardingScreen()),
+              MaterialPageRoute(
+                builder: (context) => const OnboardingScreen(),
+              ),
             );
           },
         ),
@@ -200,6 +321,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
               const SizedBox(height: 40),
+
               // 아이디 입력
               const Text('아이디', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
               const SizedBox(height: 8),
@@ -215,6 +337,52 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 16),
               // 비밀번호 입력
               const Text('비밀번호', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+
+              const Text(
+                '이메일',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _emailController,
+                keyboardType: TextInputType.emailAddress,
+                autocorrect: false,
+                style: const TextStyle(fontSize: 18),
+                decoration: InputDecoration(
+                  hintText: 'example@email.com',
+                  prefixIcon: const Icon(
+                    Icons.email_outlined,
+                    size: 28,
+                    color: Color(0xFF1976D2),
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(
+                      color: Color(0xFF1976D2),
+                      width: 2,
+                    ),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 18,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                '비밀번호',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+
               const SizedBox(height: 8),
               TextField(
                 controller: _pwController,
@@ -224,17 +392,47 @@ class _LoginScreenState extends State<LoginScreen> {
                   hintText: '비밀번호를 입력하세요',
                   prefixIcon: const Icon(Icons.lock_outline, color: Color(0xFF1976D2)),
                   suffixIcon: IconButton(
+
                     icon: Icon(_obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined),
                     onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+
+                    icon: Icon(
+                      _obscurePassword
+                          ? Icons.visibility_off_outlined
+                          : Icons.visibility_outlined,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _obscurePassword = !_obscurePassword;
+                      });
+                    },
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(
+                      color: Color(0xFF1976D2),
+                      width: 2,
+                    ),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 18,
+
                   ),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                 ),
               ),
               const SizedBox(height: 24),
+
               // 로그인 버튼
+
               SizedBox(
                 width: double.infinity, height: 60,
                 child: ElevatedButton(
+
                   onPressed: _handleLogin, //  [수정] 이제 이 버튼은 서버와 통신
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF1976D2), 
@@ -250,6 +448,52 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: TextButton(
                   onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const SignupScreen())),
                   child: const Text('아직 계정이 없으신가요? 회원가입', style: TextStyle(fontSize: 16, color: Color(0xFF1976D2))),
+
+                  onPressed: _isLoading ? null : _handleLogin,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF1976D2),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: _isLoading
+                      ? const SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.5,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Text(
+                          '로그인',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Center(
+                child: TextButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const SignupScreen(),
+                      ),
+                    );
+                  },
+                  child: const Text(
+                    '아직 계정이 없으신가요? 회원가입',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Color(0xFF1976D2),
+                    ),
+                  ),
+
                 ),
               ),
               const SizedBox(height: 24),
@@ -265,6 +509,7 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               const SizedBox(height: 20),
               SocialLoginButton(
+
                 color: const Color(0xFFFEE500), 
                 textColor: const Color(0xFF191919), 
                 icon: Icons.chat_bubble, 
@@ -291,6 +536,42 @@ class _LoginScreenState extends State<LoginScreen> {
                 onTap: () => _handleSocialLogin('google'), //  구글 호출
                 hasBorder: true
               ),
+
+                color: const Color(0xFFFEE500),
+                textColor: const Color(0xFF191919),
+                icon: Icons.chat_bubble,
+                iconColor: const Color(0xFF191919),
+                text: '카카오로 시작하기',
+                onTap: () {
+                  _showSnack('간편 로그인은 다음 단계에서 연동됩니다');
+                },
+              ),
+              const SizedBox(height: 12),
+              SocialLoginButton(
+                color: const Color(0xFF03C75A),
+                textColor: Colors.white,
+                icon: Icons.login,
+                iconColor: Colors.white,
+                text: '네이버로 시작하기',
+                onTap: () {
+                  _showSnack('간편 로그인은 다음 단계에서 연동됩니다');
+                },
+              ),
+              const SizedBox(height: 12),
+              SocialLoginButton(
+                color: Colors.white,
+                textColor: const Color(0xFF191919),
+                icon: Icons.g_mobiledata,
+                iconColor: const Color(0xFF4285F4),
+                text: '구글로 시작하기',
+                onTap: () {
+                  _showSnack('간편 로그인은 다음 단계에서 연동됩니다');
+                },
+                hasBorder: true,
+              ),
+              const SizedBox(height: 22),
+              _buildGuestButton(),
+
               const SizedBox(height: 32),
             ],
           ),

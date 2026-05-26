@@ -180,8 +180,8 @@ class _MainScreenState extends State<MainScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: const [
+                    const Row(
+                      children: [
                         Icon(
                           Icons.info_outline,
                           size: 18,
@@ -241,18 +241,14 @@ class _MainScreenState extends State<MainScreen> {
       return;
     }
 
-    final RegExp urlRegex = RegExp("(https?:\\/\\/|www\\.)[^\\s<>\\\"]+");
+    final RegExp urlRegex = RegExp(r'(https?:\/\/|www\.)[^\s<>"]+');
     final Match? urlMatch = urlRegex.firstMatch(inputText);
-    if (urlMatch == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('URL이 포함된 텍스트를 입력해주세요')),
-      );
-      return;
-    }
 
-    final String detectedUrl = urlMatch.group(0)!.startsWith('www.')
-        ? 'https://${urlMatch.group(0)!}'
-        : urlMatch.group(0)!;
+    final String detectedUrl = urlMatch == null
+        ? ''
+        : urlMatch.group(0)!.startsWith('www.')
+            ? 'https://${urlMatch.group(0)!}'
+            : urlMatch.group(0)!;
 
     if (!appState.isLoggedIn) {
       if (!appState.canUseGuestScan) {
@@ -353,12 +349,14 @@ class _MainScreenState extends State<MainScreen> {
 
     String? analyzedAt;
     String? errorMessage;
+    String? llmResponseGuide;
 
     try {
-      final response = await ApiService.scanUrl(
+      final response = await ApiService.scanText(
         deviceId: 'android-test-device',
-        url: detectedUrl,
+        content: inputText,
         sourceApp: 'manual_input',
+        sender: 'manual',
       );
 
       finalRiskGrade =
@@ -366,6 +364,7 @@ class _MainScreenState extends State<MainScreen> {
       finalRiskScore = _toIntScore(response['final_risk_score']);
       safeBrowsing = _asMapList(response['safe_browsing']);
       analyzedAt = response['analyzed_at']?.toString();
+      llmResponseGuide = response['llm_response_guide']?.toString();
 
       final xgboostMap = _asMap(response['xgboost']);
       final xgboostList = _asMapList(response['xgboost']);
@@ -466,6 +465,7 @@ class _MainScreenState extends State<MainScreen> {
           kcelectraVerdict: kcelectraVerdict,
           analyzedAt: analyzedAt,
           errorMessage: errorMessage,
+          llmResponseGuide: llmResponseGuide,
         ),
       ),
     );
@@ -505,6 +505,7 @@ class _MainScreenState extends State<MainScreen> {
     if (normalized.contains('safe')) return 'safe';
     return verdicts.isEmpty ? null : verdicts.first;
   }
+
   Future<void> _clearAllHistory() async {
     await HistoryService.clearHistory();
     await _loadHistory();
@@ -540,9 +541,8 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final int remainingCount = appState.remainingScanCount < 0
-        ? 0
-        : appState.remainingScanCount;
+    final int remainingCount =
+        appState.remainingScanCount < 0 ? 0 : appState.remainingScanCount;
     final int usedCount = 3 - remainingCount;
 
     return Scaffold(
@@ -855,5 +855,3 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 }
-
-

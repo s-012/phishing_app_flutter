@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import '../app_state.dart';
+import '../services/api_client.dart';
+import '../services/auth_api_service.dart';
+import 'home_screen.dart';
 import 'login_screen.dart';
 import 'package:http/http.dart' as http; // [추가] 외부 서버와 통신하기 위한 패키지
 import 'dart:convert'; //  [추가] 데이터를 서버가 이해하는 JSON 형식으로 바꾸기 위함
@@ -18,6 +22,7 @@ class _SignupScreenState extends State<SignupScreen> {
   bool _obscurePassword = true;
   bool _obscureConfirm = true;
   bool _agreeTerms = false;
+  bool _isLoading = false;
 
   void _showDialog(String title, String message, {bool isSuccess = false}) {
     showDialog(
@@ -98,17 +103,29 @@ class _SignupScreenState extends State<SignupScreen> {
     );
   }
 
+
   //  [수정] 기존 void에서 Future<void> 및 async로 변경 (서버 응답을 기다려야 하므로)
+
+  bool _isValidEmail(String value) {
+    return RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(value);
+  }
+
+
   Future<void> _handleSignup() async {
     final name = _nameController.text.trim();
     final email = _idController.text.trim();
     final password = _pwController.text;
 
+
     // 1. 유효성 검사 (입력값 체크 로직은 기존 유지)
+
+    // 이름 입력 체크
+
     if (name.isEmpty) {
       _showDialog('입력 오류', '이름을 입력해주세요');
       return;
     }
+
     
     final nameRegex = RegExp(r'^[\uAC00-\uD7A3a-zA-Z\u3040-\u30FF\u4E00-\u9FFF ]+$');
     if (!nameRegex.hasMatch(name)) {
@@ -126,6 +143,38 @@ class _SignupScreenState extends State<SignupScreen> {
     }
     if (password.length < 6) { 
       _showDialog('입력 오류', '비밀번호는 최소 6자리 이상이어야 합니다.');
+
+
+    final nameRegex = RegExp(
+      r'^[\uAC00-\uD7A3a-zA-Z\u3040-\u30FF\u4E00-\u9FFF ]+$',
+    );
+    if (!nameRegex.hasMatch(name)) {
+      _showDialog(
+        '이름 형식 오류',
+        '이름에는 숫자나 특수문자를\n사용할 수 없습니다.\n한글, 영어, 다른 언어만 입력해주세요',
+      );
+      return;
+    }
+
+    if (email.isEmpty) {
+      _showDialog('입력 오류', '이메일을 입력해주세요');
+      return;
+    }
+    if (!_isValidEmail(email)) {
+      _showDialog('입력 오류', '올바른 이메일 형식을 입력해주세요');
+      return;
+    }
+    if (password.isEmpty) {
+      _showDialog('입력 오류', '비밀번호를 입력해주세요');
+      return;
+    }
+    if (password.length < 6) {
+      _showDialog('입력 오류', '비밀번호는 6자 이상이어야 합니다');
+      return;
+    }
+    if (password != _pwConfirmController.text) {
+      _showDialog('비밀번호 오류', '비밀번호가 일치하지 않습니다.\n다시 확인해주세요');
+
       return;
     }
     if (!_agreeTerms) {
@@ -161,6 +210,29 @@ class _SignupScreenState extends State<SignupScreen> {
     } catch (e) {
       //  [추가] 서버 연결 실패(네트워크 오류 등)에 대한 예외 처리
       _showDialog('연결 오류', '서버(4000번)가 켜져 있는지 확인하세요.');
+
+    setState(() => _isLoading = true);
+
+    try {
+      final result = await AuthApiService.signup(
+        name: name,
+        email: email,
+        password: password,
+      );
+      appState.setAuthenticatedSession(result.user, displayName: name);
+
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const HomeScreen()),
+      );
+    } on ApiException catch (e) {
+      _showDialog('회원가입 실패', e.message);
+    } catch (_) {
+      _showDialog('회원가입 실패', '회원가입 중 오류가 발생했습니다');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+
     }
   }
 
@@ -197,15 +269,47 @@ class _SignupScreenState extends State<SignupScreen> {
                 ),
               ),
               const SizedBox(height: 16),
+
               const Text('아이디', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+
+
+              // 이메일 (백엔드 로그인 ID)
+              const Text(
+                '이메일',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+              ),
+
               const SizedBox(height: 8),
               TextField(
                 controller: _idController,
                 style: const TextStyle(fontSize: 18),
                 decoration: InputDecoration(
+
                   hintText: '아이디를 입력하세요',
                   prefixIcon: const Icon(Icons.person_outline, size: 28, color: Color(0xFF1976D2)),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+
+                  hintText: 'example@email.com',
+                  prefixIcon: const Icon(
+                    Icons.person_outline,
+                    size: 28,
+                    color: Color(0xFF1976D2),
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(
+                      color: Color(0xFF1976D2),
+                      width: 2,
+                    ),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 18,
+                  ),
+
                 ),
               ),
               const SizedBox(height: 16),
@@ -259,13 +363,35 @@ class _SignupScreenState extends State<SignupScreen> {
                 width: double.infinity,
                 height: 60,
                 child: ElevatedButton(
-                  onPressed: _handleSignup,
+                  onPressed: _isLoading ? null : _handleSignup,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF1976D2),
                     foregroundColor: Colors.white,
+
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                   child: const Text('회원가입', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: _isLoading
+                      ? const SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.5,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Text(
+                          '회원가입',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+
                 ),
               ),
               const SizedBox(height: 32),

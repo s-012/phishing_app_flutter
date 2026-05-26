@@ -4,6 +4,7 @@ class NotificationItem {
   final String text;
   final List<String> urls;
 
+  final String? resultId;
   final String? finalRiskGrade;
   final int? finalRiskScore;
   final List<Map<String, dynamic>> safeBrowsing;
@@ -25,6 +26,7 @@ class NotificationItem {
     required this.title,
     required this.text,
     required this.urls,
+    required this.resultId,
     required this.finalRiskGrade,
     required this.finalRiskScore,
     required this.safeBrowsing,
@@ -50,8 +52,7 @@ class NotificationItem {
         _parseSafeBrowsing(response['safe_browsing']);
 
     final Map<String, dynamic>? xgboostMap = _toMap(response['xgboost']);
-    final List<Map<String, dynamic>> xgboostList =
-        _toMapList(response['xgboost']);
+    final List<Map<String, dynamic>> xgboostList = _toMapList(response['xgboost']);
 
     bool? xgboostUsed;
     double? xgboostScore;
@@ -82,6 +83,7 @@ class NotificationItem {
       title: title,
       text: text,
       urls: urls,
+      resultId: _toStringOrNull(response['result_id']),
       finalRiskGrade: _toStringOrNull(response['final_risk_grade']),
       finalRiskScore: _toInt(response['final_risk_score']),
       safeBrowsing: safeBrowsing,
@@ -109,6 +111,7 @@ class NotificationItem {
       title: title,
       text: text,
       urls: urls,
+      resultId: null,
       finalRiskGrade: null,
       finalRiskScore: null,
       safeBrowsing: const <Map<String, dynamic>>[],

@@ -50,11 +50,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: const Text('취소'),
           ),
           TextButton(
-            onPressed: () {
-              final name = _nameController.text.trim();
-              if (name.isNotEmpty) appState.setUserName(name);
-              Navigator.pop(context);
-            },
+onPressed: () async {
+  final name = _nameController.text.trim();
+
+  if (name.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('닉네임을 입력해주세요')),
+    );
+    return;
+  }
+
+  try {
+    await appState.updateUserName(name);
+
+    if (!context.mounted) return;
+
+    Navigator.pop(context);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('닉네임이 수정되었습니다')),
+    );
+  } catch (_) {
+    if (!context.mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('닉네임 수정 중 오류가 발생했습니다')),
+    );
+  }
+},
             child: const Text('저장'),
           ),
         ],
@@ -75,14 +97,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           TextButton(
             style: TextButton.styleFrom(foregroundColor: Colors.red),
-            onPressed: () {
-              appState.deleteAccount();
-              Navigator.pop(context);
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(builder: (context) => const LoginScreen()),
-                (route) => false,
-              );
+            onPressed: () async {
+              try {
+                await appState.deleteAccount();
+                if (!context.mounted) return;
+                Navigator.pop(context);
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (context) => const LoginScreen()),
+                  (route) => false,
+                );
+              } catch (_) {
+                if (!context.mounted) return;
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('회원탈퇴 중 오류가 발생했습니다')),
+                );
+              }
             },
             child: const Text('탈퇴'),
           ),

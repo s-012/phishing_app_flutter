@@ -13,6 +13,8 @@ class ResultScreen extends StatelessWidget {
   final String reason;
   final String action;
 
+  final String? llmResponseGuide;
+
   final String? finalRiskGrade;
   final int? finalRiskScore;
   final List<Map<String, dynamic>> safeBrowsing;
@@ -39,6 +41,7 @@ class ResultScreen extends StatelessWidget {
     required this.score,
     required this.reason,
     required this.action,
+    this.llmResponseGuide,
     this.finalRiskGrade,
     this.finalRiskScore,
     this.safeBrowsing = const <Map<String, dynamic>>[],
@@ -101,6 +104,7 @@ class ResultScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final riskPercent = finalRiskScore?.toDouble() ?? score;
+    final guideText = llmResponseGuide?.trim();
 
     Color bgColor;
     switch (_gradeText) {
@@ -176,9 +180,21 @@ class ResultScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 20),
+if (guideText != null && guideText.isNotEmpty) ...[
+  _ResultCard(
+    title: 'AI 상세 경고문',
+    icon: Icons.warning_amber_rounded,
+    isDark: isDark,
+    highlight: true,
+    rows: [
+      _row('설명', guideText),
+    ],
+  ),
+],              
+const SizedBox(height: 14),
               _ResultCard(
                 title: '기본 정보',
-                icon: Icons.text_snippet_outlined,
+                icon: Icons.info_outline,
                 isDark: isDark,
                 rows: [
                   _row('앱/출처', sourceApp),
@@ -187,6 +203,19 @@ class ResultScreen extends StatelessWidget {
                   _row('최종 등급', _gradeText),
                   _row('최종 점수', finalRiskScore?.toString() ?? '-'),
                   _row('분석 시각', analyzedAt ?? '-'),
+                ],
+              ),
+
+              const SizedBox(height: 14),
+              _ResultCard(
+                title: '판단 및 대처',
+                icon: Icons.info_outline,
+                isDark: isDark,
+                rows: [
+                  _row('판단 이유', reason),
+                  _row('대처 방법', action),
+                  if (errorMessage != null && errorMessage!.isNotEmpty)
+                    _row('에러 메시지', errorMessage!, color: Colors.red),
                 ],
               ),
               const SizedBox(height: 14),
@@ -205,19 +234,6 @@ class ResultScreen extends StatelessWidget {
                   _row('KcELECTRA verdict', kcelectraVerdict ?? '-'),
                 ],
               ),
-              const SizedBox(height: 14),
-              _ResultCard(
-                title: '판단 및 대처',
-                icon: Icons.info_outline,
-                isDark: isDark,
-                highlight: true,
-                rows: [
-                  _row('판단 이유', reason),
-                  _row('대처 방법', action),
-                  if (errorMessage != null && errorMessage!.isNotEmpty)
-                    _row('에러 메시지', errorMessage!, color: Colors.red),
-                ],
-              ),
               const SizedBox(height: 24),
               SizedBox(
                 width: double.infinity,
@@ -229,8 +245,12 @@ class ResultScreen extends StatelessWidget {
                       context,
                       MaterialPageRoute(
                         builder: (context) => ChatBotScreen(
-                          initialMessage:
-                              '검사 URL: $detectedUrl\n최종 등급: $_gradeText\n최종 점수: ${finalRiskScore ?? riskPercent.toInt()}\n판단 이유: $reason',
+initialMessage:
+    '검사 URL: $detectedUrl\n'
+    '최종 등급: $_gradeText\n'
+    '최종 점수: ${finalRiskScore ?? riskPercent.toInt()}\n'
+    '판단 이유: $reason\n'
+    '${guideText != null && guideText.isNotEmpty ? '상세 경고문: $guideText' : ''}',
                           onBackHome: () => Navigator.pop(context),
                         ),
                       ),
