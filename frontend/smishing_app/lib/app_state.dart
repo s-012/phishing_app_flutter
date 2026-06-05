@@ -10,6 +10,8 @@ final appState = AppState();
 // SharedPreferences 키 상수
 const _kGuestScanCount = 'guest_scan_count';
 const _kHasAgreedPermission = 'has_agreed_permission';
+const _kSmishingAlert = 'smishing_alert';
+const _kCautionAlert = 'caution_alert';
 
 class AppState extends ChangeNotifier {
   bool _isDarkMode = false;
@@ -44,11 +46,12 @@ class AppState extends ChangeNotifier {
 
   bool get hasAgreedPermission => _hasAgreedPermission;
 
-  // 앱 시작 시 SharedPreferences에서 저장된 값 불러오기
   Future<void> loadPersistedState() async {
     final prefs = await SharedPreferences.getInstance();
     _guestScanCount = prefs.getInt(_kGuestScanCount) ?? 0;
     _hasAgreedPermission = prefs.getBool(_kHasAgreedPermission) ?? false;
+    _smishingAlert = prefs.getBool(_kSmishingAlert) ?? true;
+    _cautionAlert = prefs.getBool(_kCautionAlert) ?? false;
     notifyListeners();
   }
 
@@ -67,19 +70,23 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  void toggleSmishingAlert() {
+  void toggleSmishingAlert() async {
     _smishingAlert = !_smishingAlert;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_kSmishingAlert, _smishingAlert);
+    notifyListeners();
+  }
+
+  void toggleCautionAlert() async {
+    _cautionAlert = !_cautionAlert;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_kCautionAlert, _cautionAlert);
     notifyListeners();
   }
 
   Future<void> updateUserName(String name) async {
     final profile = await AuthApiService.updateMe(name: name);
     _applyUserProfile(profile, displayName: profile.name ?? name);
-    notifyListeners();
-  }
-
-  void toggleCautionAlert() {
-    _cautionAlert = !_cautionAlert;
     notifyListeners();
   }
 
@@ -98,7 +105,6 @@ class AppState extends ChangeNotifier {
     return email.substring(0, at);
   }
 
-  /// 앱 시작 시 저장된 JWT로 세션 복구
   Future<bool> restoreSession() async {
     _isAuthLoading = true;
     notifyListeners();
@@ -120,7 +126,6 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  /// 로그인/회원가입 API 성공 후 세션 반영
   void setAuthenticatedSession(UserProfile profile, {String? displayName}) {
     _applyUserProfile(profile, displayName: displayName);
     notifyListeners();
@@ -152,7 +157,7 @@ class AppState extends ChangeNotifier {
   void increaseGuestScan() async {
     if (!_isLoggedIn && _guestScanCount < _maxGuestScanCount) {
       _guestScanCount++;
-      final prefs = await SharedPreferences.getInstance(); // 영구 저장
+      final prefs = await SharedPreferences.getInstance();
       await prefs.setInt(_kGuestScanCount, _guestScanCount);
       notifyListeners();
     }
@@ -160,19 +165,19 @@ class AppState extends ChangeNotifier {
 
   void resetGuestScan() async {
     _guestScanCount = 0;
-    final prefs = await SharedPreferences.getInstance(); // 영구 저장
+    final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_kGuestScanCount, 0);
     notifyListeners();
   }
 
   void agreePermission() async {
     _hasAgreedPermission = true;
-    final prefs = await SharedPreferences.getInstance(); // 영구 저장
+    final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_kHasAgreedPermission, true);
     notifyListeners();
   }
 
-  void resetPermission() async { // 테스트용
+  void resetPermission() async {
     _hasAgreedPermission = false;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_kHasAgreedPermission, false);
