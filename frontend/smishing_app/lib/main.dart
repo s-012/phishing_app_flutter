@@ -6,14 +6,11 @@ import 'package:flutter/services.dart';
 import 'app_state.dart';
 import 'models/notification_item.dart';
 import 'screens/access_screen.dart';
-import 'services/app_permission_service.dart';
-import 'services/local_notification_service.dart';
-import 'services/notification_pipeline_service.dart';
+import 'services/api_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await AppPermissionService.requestPostNotificationsOnStartup();
-  await LocalNotificationService.initialize();
+  await appState.loadPersistedState();
   runApp(const MyApp());
 }
 
@@ -97,6 +94,8 @@ class NotificationBridge extends StatefulWidget {
 }
 
 class _NotificationBridgeState extends State<NotificationBridge> {
+  static const String _deviceId = 'android-test-device';
+
   static const List<String> _channelCandidates = <String>[
     'smishing/notifications',
     'notification_listener/events',
@@ -105,10 +104,13 @@ class _NotificationBridgeState extends State<NotificationBridge> {
   ];
 
   final List<NotificationItem> _items = <NotificationItem>[];
+  final Set<String> _alertedResultIds = <String>{};
+  final Set<String> _alertedFallbackKeys = <String>{};
 
   StreamSubscription<dynamic>? _streamSub;
   String? _boundChannel;
   String? _streamError;
+  bool _isAlertOpen = false;
 
   @override
   void initState() {
@@ -151,7 +153,8 @@ class _NotificationBridgeState extends State<NotificationBridge> {
       },
       onError: (Object error) {
         final bool missingPlugin =
-            error is MissingPluginException || error.toString().contains('MissingPluginException');
+            error is MissingPluginException ||
+            error.toString().contains('MissingPluginException');
 
         if (missingPlugin) {
           _bindEventChannel(index + 1);
@@ -168,16 +171,6 @@ class _NotificationBridgeState extends State<NotificationBridge> {
   }
 
   Future<void> _handleIncomingNotification(dynamic payload) async {
-    // 로그인 상태가 아니면 알림 수집·분석을 수행하지 않습니다.
-    if (!appState.isLoggedIn) {
-      return;
-    }
-
-    // 알림 접근 권한이 없으면 수집 파이프라인을 실행하지 않습니다.
-    if (!await AppPermissionService.isNotificationListenerEnabled()) {
-      return;
-    }
-
     Map<String, dynamic>? map;
 
     if (payload is Map) {
@@ -200,7 +193,7 @@ class _NotificationBridgeState extends State<NotificationBridge> {
 
     final String title = _pickString(
       map,
-      <String>['title', 'notificationTitle', 'appName', 'sender'],
+      <String>['title', 'notificationTitle', 'appName'],
       fallback: '알림',
     );
 
@@ -210,35 +203,31 @@ class _NotificationBridgeState extends State<NotificationBridge> {
       fallback: '',
     );
 
-    if (text.trim().isEmpty) {
-      return;
-    }
-
-    final String appName = _resolveAppName(packageName);
     final List<String> urlsFromPayload = _toStringList(map['urls']);
     final List<String> urls =
         urlsFromPayload.isNotEmpty ? urlsFromPayload : _extractUrls(text);
 
+    if (urls.isEmpty) return;
+
+    final String firstUrl = urls.first;
+
     try {
-      final scanResult = await NotificationPipelineService.processNotification(
-        appName: appName,
-        sender: title,
-        message: text,
+      final Map<String, dynamic> response = await ApiService.scanUrl(
+        deviceId: _deviceId,
+        url: firstUrl,
+        sourceApp: packageName,
       );
 
-      if (scanResult == null) {
-        return;
-      }
-
-      final NotificationItem item = NotificationItem.fromAlertScanResult(
+      final NotificationItem item = NotificationItem.fromScanResponse(
         packageName: packageName,
         title: title,
         text: text,
         urls: urls,
-        result: scanResult,
+        response: response,
       );
 
       _appendItem(item);
+      await _showRiskAlertIfNeeded(item);
     } catch (e) {
       final NotificationItem errorItem = NotificationItem.withError(
         packageName: packageName,
@@ -251,21 +240,6 @@ class _NotificationBridgeState extends State<NotificationBridge> {
     }
   }
 
-  String _resolveAppName(String packageName) {
-    switch (packageName) {
-      case 'com.kakao.talk':
-        return '카카오톡';
-      case 'com.samsung.android.messaging':
-        return '삼성 메시지';
-      case 'com.google.android.apps.messaging':
-        return 'Google 메시지';
-      case 'com.android.mms':
-        return '문자';
-      default:
-        return packageName;
-    }
-  }
-
   void _appendItem(NotificationItem item) {
     if (!mounted) return;
 
@@ -275,6 +249,47 @@ class _NotificationBridgeState extends State<NotificationBridge> {
         _items.removeRange(100, _items.length);
       }
     });
+  }
+
+  Future<void> _showRiskAlertIfNeeded(NotificationItem item) async {
+    final String grade = (item.finalRiskGrade ?? '').toUpperCase();
+    if (grade != 'DANGER' && grade != 'SUSPICIOUS') return;
+
+    if (item.resultId != null && item.resultId!.isNotEmpty) {
+      if (_alertedResultIds.contains(item.resultId)) return;
+      _alertedResultIds.add(item.resultId!);
+    } else {
+      final String fallbackKey = _fallbackAlertKey(item);
+      if (_alertedFallbackKeys.contains(fallbackKey)) return;
+      _alertedFallbackKeys.add(fallbackKey);
+    }
+
+    if (_isAlertOpen) return;
+
+    final BuildContext? context = widget.navigatorKey.currentContext;
+    if (context == null) return;
+
+    _isAlertOpen = true;
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => _RiskAlertDialog(
+        item: item,
+        levelColor: _gradeColor(grade),
+        onViewDetail: () {
+          Navigator.of(context).pop();
+          _openDetailSheet(context, item);
+        },
+      ),
+    );
+
+    _isAlertOpen = false;
+  }
+
+  String _fallbackAlertKey(NotificationItem item) {
+    final String firstUrl = item.urls.isNotEmpty ? item.urls.first : '-';
+    return '${item.packageName}|${item.title}|$firstUrl|${item.finalRiskGrade ?? 'UNKNOWN'}';
   }
 
   void _openDetailSheet(BuildContext context, NotificationItem selected) {
@@ -327,22 +342,32 @@ class _NotificationBridgeState extends State<NotificationBridge> {
     for (final String key in keys) {
       final dynamic value = source[key];
       if (value == null) continue;
-
       final String text = value.toString().trim();
       if (text.isNotEmpty) return text;
     }
-
     return fallback;
   }
 
   List<String> _toStringList(dynamic raw) {
     if (raw is! List) return const <String>[];
-
     return raw
         .map((dynamic e) => e.toString().trim())
         .where((String e) => e.isNotEmpty)
         .toSet()
         .toList();
+  }
+
+  Color _gradeColor(String grade) {
+    switch (grade.toUpperCase()) {
+      case 'DANGER':
+        return Colors.red;
+      case 'SUSPICIOUS':
+        return Colors.orange;
+      case 'SAFE':
+        return Colors.green;
+      default:
+        return Colors.grey;
+    }
   }
 
   @override
@@ -358,9 +383,12 @@ class _NotificationBridgeState extends State<NotificationBridge> {
             child: Material(
               elevation: 2,
               borderRadius: BorderRadius.circular(10),
-              color: _streamError == null ? Colors.black.withValues(alpha: 0.65) : Colors.red.withValues(alpha: 0.9),
+              color: _streamError == null
+                  ? Colors.black.withValues(alpha: 0.65)
+                  : Colors.red.withValues(alpha: 0.9),
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                 child: Text(
                   _streamError ?? '알림 수신 채널: $_boundChannel',
                   style: const TextStyle(color: Colors.white, fontSize: 12),
@@ -371,7 +399,8 @@ class _NotificationBridgeState extends State<NotificationBridge> {
         if (_items.isNotEmpty)
           Positioned(
             right: 14,
-            bottom: (_boundChannel != null || _streamError != null) ? 56 : 14,
+            bottom:
+                (_boundChannel != null || _streamError != null) ? 56 : 14,
             child: FloatingActionButton.extended(
               heroTag: 'notif_result_fab',
               onPressed: () => _openDetailSheet(context, _items.first),
@@ -380,6 +409,76 @@ class _NotificationBridgeState extends State<NotificationBridge> {
             ),
           ),
       ],
+    );
+  }
+}
+
+class _RiskAlertDialog extends StatelessWidget {
+  final NotificationItem item;
+  final Color levelColor;
+  final VoidCallback onViewDetail;
+
+  const _RiskAlertDialog({
+    required this.item,
+    required this.levelColor,
+    required this.onViewDetail,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final String grade = (item.finalRiskGrade ?? 'UNKNOWN').toUpperCase();
+    final String firstUrl = item.urls.isNotEmpty ? item.urls.first : '-';
+
+    return AlertDialog(
+      title: Row(
+        children: <Widget>[
+          Icon(Icons.warning_amber_rounded, color: levelColor),
+          const SizedBox(width: 8),
+          Text('위험 경고: $grade'),
+        ],
+      ),
+      content: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            _kv('앱명', item.packageName),
+            _kv('제목', item.title.isEmpty ? '-' : item.title),
+            _kv('본문', item.text.isEmpty ? '-' : item.text),
+            _kv('URL', firstUrl),
+            _kv('최종 등급', grade),
+            _kv('위험 점수', item.finalRiskScore?.toString() ?? '-'),
+          ],
+        ),
+      ),
+      actions: <Widget>[
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('닫기'),
+        ),
+        FilledButton(
+          onPressed: onViewDetail,
+          child: const Text('상세 보기'),
+        ),
+      ],
+    );
+  }
+
+  Widget _kv(String key, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: RichText(
+        text: TextSpan(
+          style: const TextStyle(color: Colors.black87, height: 1.35),
+          children: <InlineSpan>[
+            TextSpan(
+              text: '$key: ',
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+            TextSpan(text: value),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -452,7 +551,8 @@ class _NotificationResultCard extends StatelessWidget {
         .join('\n');
   }
 
-  String _d(double? value, {int n = 6}) => value == null ? '-' : value.toStringAsFixed(n);
+  String _d(double? value, {int n = 6}) =>
+      value == null ? '-' : value.toStringAsFixed(n);
   String _b(bool? value) => value == null ? '-' : value.toString();
 
   @override
@@ -476,7 +576,8 @@ class _NotificationResultCard extends StatelessWidget {
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
                     color: color.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(999),
@@ -484,7 +585,8 @@ class _NotificationResultCard extends StatelessWidget {
                   ),
                   child: Text(
                     grade,
-                    style: TextStyle(color: color, fontWeight: FontWeight.w700),
+                    style: TextStyle(
+                        color: color, fontWeight: FontWeight.w700),
                   ),
                 ),
               ],
@@ -495,13 +597,16 @@ class _NotificationResultCard extends StatelessWidget {
             Text('URL: ${item.urls.isEmpty ? '-' : item.urls.join(', ')}'),
             Text('최종 점수: ${item.finalRiskScore?.toString() ?? '-'}'),
             Text('Safe Browsing: ${_safeBrowsingText(item.safeBrowsing)}'),
-            Text('XGBoost used/score/verdict: ${_b(item.xgboostUsed)} / ${_d(item.xgboostScore)} / ${item.xgboostVerdict ?? '-'}'),
-            Text('KcELECTRA used/score/intent/verdict: ${_b(item.kcelectraUsed)} / ${_d(item.kcelectraScore)} / ${item.kcelectraIntent ?? '-'} / ${item.kcelectraVerdict ?? '-'}'),
+            Text(
+                'XGBoost used/score/verdict: ${_b(item.xgboostUsed)} / ${_d(item.xgboostScore)} / ${item.xgboostVerdict ?? '-'}'),
+            Text(
+                'KcELECTRA used/score/intent/verdict: ${_b(item.kcelectraUsed)} / ${_d(item.kcelectraScore)} / ${item.kcelectraIntent ?? '-'} / ${item.kcelectraVerdict ?? '-'}'),
             Text('분석 시각: ${item.analyzedAt ?? '-'}'),
             if (item.errorMessage != null && item.errorMessage!.isNotEmpty)
               Text(
                 '에러: ${item.errorMessage}',
-                style: const TextStyle(color: Colors.red, fontWeight: FontWeight.w700),
+                style: const TextStyle(
+                    color: Colors.red, fontWeight: FontWeight.w700),
               ),
           ],
         ),
