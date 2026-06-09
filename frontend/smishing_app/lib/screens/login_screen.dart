@@ -43,7 +43,7 @@ class _LoginScreenState extends State<LoginScreen> {
         password: password,
       );
 
-      await appState.setAuthenticatedSession(result.user);
+      appState.setAuthenticatedSession(result.user);
 
       if (!mounted) return;
 

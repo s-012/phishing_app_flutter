@@ -1,7 +1,7 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../app_state.dart';
-import '../services/app_permission_service.dart';
 import 'home_screen.dart';
 
 class PermissionScreen extends StatefulWidget {
@@ -11,22 +11,16 @@ class PermissionScreen extends StatefulWidget {
   State<PermissionScreen> createState() => _PermissionScreenState();
 }
 
-class _PermissionScreenState extends State<PermissionScreen>
-    with WidgetsBindingObserver {
+class _PermissionScreenState extends State<PermissionScreen> with WidgetsBindingObserver {
   bool _agreedPrivacy = false;
   bool _agreedNotification = false;
-  bool _listenerEnabled = false;
-  bool _postNotificationGranted = false;
-  bool _checkingPermissions = true;
 
-  bool get _canProceed => _agreedPrivacy;
-//임시로 바꿔둔 코드 알림 설정 바뀌면 위 코드 교체 필요
-//bool get _canProceed => _agreedPrivacy;
+  bool get _canProceed => _agreedPrivacy && _agreedNotification;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _refreshPermissionStatus();
   }
 
   @override
@@ -35,21 +29,19 @@ class _PermissionScreenState extends State<PermissionScreen>
     super.dispose();
   }
 
+  // 설정창에서 돌아왔을 때 권한 상태 재확인
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      _refreshPermissionStatus();
+      _recheckNotificationPermission();
     }
   }
 
-  Future<void> _refreshPermissionStatus() async {
-    final result = await AppPermissionService.checkScanPermissions();
-    if (!mounted) return;
-    setState(() {
-      _listenerEnabled = result.notificationListenerEnabled;
-      _postNotificationGranted = result.postNotificationGranted;
-      _checkingPermissions = false;
-    });
+  Future<void> _recheckNotificationPermission() async {
+    final status = await Permission.notification.status;
+    if (status.isGranted) {
+      setState(() => _agreedNotification = true);
+    }
   }
 
   void _showPrivacyDialog() {
@@ -88,38 +80,50 @@ class _PermissionScreenState extends State<PermissionScreen>
     );
   }
 
-  Future<void> _openListenerSettings() async {
-    await AppPermissionService.openNotificationListenerSettings();
-  }
+  Future<void> _handleNotificationPermission() async {
+    final status = await Permission.notification.status;
 
-  Future<void> _proceed() async {
-    await AppPermissionService.requestPostNotificationPermission();
-    await _refreshPermissionStatus();
+    if (status.isGranted) {
+      setState(() => _agreedNotification = true);
+      return;
+    }
 
-    if (!_listenerEnabled) {
-      if (!mounted) return;
-      await AppPermissionService.promptNotificationListenerIfNeeded(
-        context,
-        force: true,
-      );
-      await _refreshPermissionStatus();
-
-      if (!_listenerEnabled) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              '알림 접근 허용이 필요합니다. 설정에서 [스미싱 탐지기]를 켜 주세요.',
-            ),
-            duration: Duration(seconds: 4),
-          ),
-        );
+    if (status.isDenied) {
+      final result = await Permission.notification.request();
+      if (result.isGranted) {
+        setState(() => _agreedNotification = true);
         return;
       }
     }
 
-    appState.agreePermission();
+    // 영구 거부이거나 요청 후에도 거부된 경우 → 안내 다이얼로그
     if (!mounted) return;
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('알림 권한 필요'),
+        content: const Text(
+          '알림이 차단되어 있습니다.\n설정에서 알림을 허용한 후\n다시 시도해주세요.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await openAppSettings();
+            },
+            child: const Text('설정으로 이동'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _proceed() {
+    appState.agreePermission();
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(builder: (context) => const HomeScreen()),
@@ -151,90 +155,6 @@ class _PermissionScreenState extends State<PermissionScreen>
     );
   }
 
-  Widget _buildPermissionStatusCard() {
-    if (_checkingPermissions) {
-      return const Card(
-        child: Padding(
-          padding: EdgeInsets.all(16),
-          child: Row(
-            children: [
-              SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-              SizedBox(width: 12),
-              Text('시스템 권한 상태 확인 중...'),
-            ],
-          ),
-        ),
-      );
-    }
-
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: const BorderSide(color: Color(0xFFEAEAEA)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              '시스템 권한 상태',
-              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
-            ),
-            const SizedBox(height: 12),
-            _statusRow(
-              label: '알림 발송 허용',
-              enabled: _postNotificationGranted,
-            ),
-            const SizedBox(height: 8),
-            _statusRow(
-              label: '알림 접근 허용 (리스너)',
-              enabled: _listenerEnabled,
-            ),
-            if (!_listenerEnabled) ...[
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: _openListenerSettings,
-                  icon: const Icon(Icons.settings),
-                  label: const Text('알림 접근 설정 열기'),
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _statusRow({required String label, required bool enabled}) {
-    return Row(
-      children: [
-        Icon(
-          enabled ? Icons.check_circle : Icons.error_outline,
-          color: enabled ? const Color(0xFF4CAF50) : Colors.orange,
-          size: 20,
-        ),
-        const SizedBox(width: 8),
-        Expanded(child: Text(label)),
-        Text(
-          enabled ? '허용됨' : '미허용',
-          style: TextStyle(
-            color: enabled ? const Color(0xFF4CAF50) : Colors.orange,
-            fontWeight: FontWeight.w600,
-            fontSize: 13,
-          ),
-        ),
-      ],
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -246,8 +166,7 @@ class _PermissionScreenState extends State<PermissionScreen>
         elevation: 0,
         title: const Text(
           '권한 설정',
-          style:
-              TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF212121)),
+          style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF212121)),
         ),
       ),
       body: SafeArea(
@@ -265,12 +184,11 @@ class _PermissionScreenState extends State<PermissionScreen>
                 ),
                 child: const Row(
                   children: [
-                    Icon(Icons.info_outline,
-                        color: Color(0xFF1976D2), size: 24),
+                    Icon(Icons.info_outline, color: Color(0xFF1976D2), size: 24),
                     SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        '아래 항목에 모두 동의하고\n시스템 알림 접근을 허용해야 합니다.',
+                        '아래 항목에 모두 동의해야\n앱을 사용할 수 있습니다.',
                         style: TextStyle(
                           fontSize: 15,
                           color: Color(0xFF1976D2),
@@ -282,9 +200,7 @@ class _PermissionScreenState extends State<PermissionScreen>
                   ],
                 ),
               ),
-              const SizedBox(height: 20),
-              _buildPermissionStatusCard(),
-              const SizedBox(height: 24),
+              const SizedBox(height: 32),
               const Text(
                 '필수 동의 항목',
                 style: TextStyle(
@@ -306,8 +222,7 @@ class _PermissionScreenState extends State<PermissionScreen>
                   ),
                 ),
                 child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   child: CheckboxListTile(
                     value: _agreedPrivacy,
                     onChanged: (val) =>
@@ -315,8 +230,7 @@ class _PermissionScreenState extends State<PermissionScreen>
                     activeColor: const Color(0xFF1976D2),
                     title: const Text(
                       '개인정보 수집 및 이용 동의 (필수)',
-                      style:
-                          TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                     ),
                     subtitle: GestureDetector(
                       onTap: _showPrivacyDialog,
@@ -349,22 +263,25 @@ class _PermissionScreenState extends State<PermissionScreen>
                   ),
                 ),
                 child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   child: CheckboxListTile(
                     value: _agreedNotification,
-                    onChanged: (val) =>
-                        setState(() => _agreedNotification = val ?? false),
+                    onChanged: (val) async {
+                      if (val == true) {
+                        await _handleNotificationPermission();
+                      } else {
+                        setState(() => _agreedNotification = false);
+                      }
+                    },
                     activeColor: const Color(0xFF1976D2),
                     title: const Text(
                       '알림 접근 허용 (필수)',
-                      style:
-                          TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                     ),
                     subtitle: const Padding(
                       padding: EdgeInsets.only(top: 4),
                       child: Text(
-                        '카카오톡·문자 알림을 읽고 위험 시 푸시를 보내기 위해 필요합니다.',
+                        '위험 탐지 시 알림을 받기 위해 필요합니다.',
                         style: TextStyle(fontSize: 13, color: Colors.black54),
                       ),
                     ),
@@ -415,4 +332,3 @@ class _PermissionScreenState extends State<PermissionScreen>
     );
   }
 }
-

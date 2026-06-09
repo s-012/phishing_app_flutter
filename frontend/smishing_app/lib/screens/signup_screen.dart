@@ -159,7 +159,7 @@ class _SignupScreenState extends State<SignupScreen> {
         email: email,
         password: password,
       );
-      await appState.setAuthenticatedSession(result.user, displayName: name);
+      appState.setAuthenticatedSession(result.user, displayName: name);
 
       if (!mounted) return;
       Navigator.pushReplacement(

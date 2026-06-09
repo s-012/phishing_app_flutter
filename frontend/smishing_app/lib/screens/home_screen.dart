@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
-
-import '../app_state.dart';
-import '../services/app_permission_service.dart';
-import 'chatbot_screen.dart';
 import 'main_screen.dart';
+import 'chatbot_screen.dart';
 import 'settings_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -13,7 +10,7 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
+class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 1; // 0=AI상담, 1=홈, 2=설정
 
   late final List<Widget> _screens;
@@ -21,10 +18,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _checkPermissionsOnEnter();
-    });
 
     _screens = [
       ChatBotScreen(
@@ -43,24 +36,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         },
       ),
     ];
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      _checkPermissionsOnEnter();
-    }
-  }
-
-  Future<void> _checkPermissionsOnEnter() async {
-    if (!mounted || !appState.isLoggedIn) return;
-    await AppPermissionService.ensurePermissionsForLoggedInUser(context);
   }
 
   void _onTapNav(int index) {
