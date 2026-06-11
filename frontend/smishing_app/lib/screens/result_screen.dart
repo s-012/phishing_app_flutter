@@ -303,7 +303,7 @@ class ResultScreen extends StatelessWidget {
                       borderRadius: BorderRadius.circular(10),
                     ),
                   ),
-                  icon: const Icon(Icons.chat_bubble_outline),
+                  icon: const Icon(Icons.search),
                   label: const Text(
                     'AI 상담사에게 물어보기',
                     style: TextStyle(

@@ -3,8 +3,7 @@ import 'package:flutter/material.dart';
 class SocialLoginButton extends StatelessWidget {
   final Color color;
   final Color textColor;
-  final IconData icon;
-  final Color iconColor;
+  final Widget logo;
   final String text;
   final VoidCallback onTap;
   final bool hasBorder;
@@ -13,8 +12,7 @@ class SocialLoginButton extends StatelessWidget {
     super.key,
     required this.color,
     required this.textColor,
-    required this.icon,
-    required this.iconColor,
+    required this.logo,
     required this.text,
     required this.onTap,
     this.hasBorder = false,
@@ -41,7 +39,7 @@ class SocialLoginButton extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, color: iconColor, size: 24),
+            logo,
             const SizedBox(width: 8),
             Text(
               text,

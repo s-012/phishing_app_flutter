@@ -6,6 +6,7 @@ import 'signup_screen.dart';
 import 'onboarding_screen.dart';
 import 'permission_screen.dart';
 import '../widgets/social_login_button.dart';
+import '../widgets/social_logos.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -341,8 +342,7 @@ class _LoginScreenState extends State<LoginScreen> {
               SocialLoginButton(
                 color: const Color(0xFFFEE500),
                 textColor: const Color(0xFF191919),
-                icon: Icons.chat_bubble,
-                iconColor: const Color(0xFF191919),
+                logo: const KakaoLogo(),
                 text: '카카오로 시작하기',
                 onTap: () {
                   _showSnack('간편 로그인은 다음 단계에서 연동됩니다');
@@ -352,8 +352,7 @@ class _LoginScreenState extends State<LoginScreen> {
               SocialLoginButton(
                 color: const Color(0xFF03C75A),
                 textColor: Colors.white,
-                icon: Icons.login,
-                iconColor: Colors.white,
+                logo: const NaverLogo(),
                 text: '네이버로 시작하기',
                 onTap: () {
                   _showSnack('간편 로그인은 다음 단계에서 연동됩니다');
@@ -363,8 +362,7 @@ class _LoginScreenState extends State<LoginScreen> {
               SocialLoginButton(
                 color: Colors.white,
                 textColor: const Color(0xFF191919),
-                icon: Icons.g_mobiledata,
-                iconColor: const Color(0xFF4285F4),
+                logo: const GoogleLogo(),
                 text: '구글로 시작하기',
                 onTap: () {
                   _showSnack('간편 로그인은 다음 단계에서 연동됩니다');
