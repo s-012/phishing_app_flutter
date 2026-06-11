@@ -362,7 +362,8 @@ class ResultScreen extends StatelessWidget {
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10),
                     ),
-                  ),
+                  ),          
+
                   child: const Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -380,6 +381,7 @@ class ResultScreen extends StatelessWidget {
                         ),
                       ),
                     ],
+
                   ),
                 ),
               ),
