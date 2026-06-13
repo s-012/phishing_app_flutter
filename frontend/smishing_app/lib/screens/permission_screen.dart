@@ -18,8 +18,10 @@ class _PermissionScreenState extends State<PermissionScreen>
     with WidgetsBindingObserver {
   bool _agreedPrivacy = false;
   bool _agreedNotification = false;
+  bool _agreedOverlay = false;
 
-  bool get _canProceed => _agreedPrivacy && _agreedNotification;
+  bool get _canProceed =>
+      _agreedPrivacy && _agreedNotification && _agreedOverlay;
 
   @override
   void initState() {
@@ -42,21 +44,28 @@ class _PermissionScreenState extends State<PermissionScreen>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (!kIsWeb && state == AppLifecycleState.resumed) {
-      _recheckNotificationPermission();
+      _recheckPermissions();
     }
   }
 
-  Future<void> _recheckNotificationPermission() async {
+  Future<void> _recheckPermissions() async {
     if (kIsWeb) return;
 
     final listenerEnabled =
         await NotificationAccessService.isNotificationListenerEnabled();
+    final overlayEnabled =
+        await NotificationAccessService.isOverlayPermissionGranted();
 
     if (!mounted) return;
 
     setState(() {
       _agreedNotification = listenerEnabled;
+      _agreedOverlay = overlayEnabled;
     });
+  }
+
+  Future<void> _recheckNotificationPermission() async {
+    await _recheckPermissions();
   }
 
   void _showPrivacyDialog() {
@@ -128,6 +137,32 @@ class _PermissionScreenState extends State<PermissionScreen>
     }
 
     await NotificationAccessService.openNotificationListenerSettings();
+  }
+
+  Future<void> _handleOverlayPermission() async {
+    if (kIsWeb) {
+      setState(() {
+        _agreedOverlay = true;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('웹에서는 테스트용으로 다른 앱 위 표시 허용 처리됩니다.'),
+        ),
+      );
+      return;
+    }
+
+    final overlayEnabled =
+        await NotificationAccessService.isOverlayPermissionGranted();
+
+    if (!mounted) return;
+    if (overlayEnabled) {
+      await _recheckPermissions();
+      return;
+    }
+
+    await NotificationAccessService.openOverlayPermissionSettings();
   }
 
   void _proceed() {
@@ -243,8 +278,10 @@ class _PermissionScreenState extends State<PermissionScreen>
 
   @override
   Widget build(BuildContext context) {
-    final notificationSubtitle =
+    const notificationSubtitle =
         kIsWeb ? '웹 테스트에서는 클릭 시 허용 처리됩니다.' : '위험 탐지 시 알림을 받기 위해 필요합니다.';
+    const overlaySubtitle =
+        kIsWeb ? '웹 테스트에서는 클릭 시 허용 처리됩니다.' : '위험 탐지 시 화면 위에 경고창을 띄우기 위해 필요합니다.';
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -330,6 +367,21 @@ class _PermissionScreenState extends State<PermissionScreen>
                     });
                   } else {
                     await _handleNotificationPermission();
+                  }
+                },
+              ),
+              const SizedBox(height: 12),
+              _permissionCard(
+                checked: _agreedOverlay,
+                title: '다른 앱 위에 표시 허용 (필수)',
+                subtitle: overlaySubtitle,
+                onTap: () async {
+                  if (_agreedOverlay) {
+                    setState(() {
+                      _agreedOverlay = false;
+                    });
+                  } else {
+                    await _handleOverlayPermission();
                   }
                 },
               ),

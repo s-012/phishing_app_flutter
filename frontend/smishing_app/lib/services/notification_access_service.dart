@@ -25,4 +25,25 @@ class NotificationAccessService {
       return;
     }
   }
+
+  static Future<bool> isOverlayPermissionGranted() async {
+    try {
+      return await _channel.invokeMethod<bool>(
+            'isOverlayPermissionGranted',
+          ) ??
+          false;
+    } on MissingPluginException {
+      return false;
+    } on PlatformException {
+      return false;
+    }
+  }
+
+  static Future<void> openOverlayPermissionSettings() async {
+    try {
+      await _channel.invokeMethod<void>('openOverlayPermissionSettings');
+    } on MissingPluginException {
+      return;
+    }
+  }
 }
